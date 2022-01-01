@@ -41,13 +41,22 @@ type And interface {
 }
 
 type Then interface {
-	AssertEqual(expected, actual interface{})
-	AssertNotEqual(expected, actual interface{})
-	AssertTrue(expected bool)
-	AssertFalse(expected bool)
-	AssertNil(expected interface{})
-	AssertNotNil(expected interface{})
+	Expect(actual interface{}) Assert
 	Logger
+}
+
+type Assert interface{
+	ShouldBeEqualTo(expected interface{})
+	ShouldNotBeEqualTo(expected interface{})
+	ShouldBeTrue()
+	ShouldBeFalse()
+	ShouldBeNil()
+	ShouldNotBeNil()
+}
+
+type assert struct {
+	actual interface{}
+	s *scenario
 }
 
 type scenario struct {
@@ -56,12 +65,14 @@ type scenario struct {
 	//assertions []bool
 	continueOnAssertionFailed bool
 	depth                     int
+	scenario                  string
 }
 
-func NewScenario(t *testing.T) Scenario {
+func NewScenario(t *testing.T, scenarioText string) Scenario {
 	return &scenario{
 		t:                         t,
 		continueOnAssertionFailed: false,
+		scenario:                  scenarioText,
 	}
 }
 
@@ -77,88 +88,116 @@ func (s *scenario) Logln(a ...interface{}) {
 
 }
 
-func (s *scenario) When(condition string, v func(and And, then Then)) {
-	s.Logln("When", condition)
+func (s *scenario) When(action string, v func(and And, then Then)) {
+	fmt.Println("Scenario:", s.scenario)
+	s.depth++
+	s.Logln("When", action)
 	s.depth++
 	v(s, s)
 	s.depth--
 }
 
-func (s *scenario) I(condition string, v func(and And, then Then)) {
-	s.Logln("And I", condition)
+func (s *scenario) I(action string, v func(and And, then Then)) {
+	s.Logln("And I", action)
 	s.depth++
 	v(s, s)
 	s.depth--
+}
+
+func (s *scenario)Expect(actual interface{}) Assert {
+	return &assert{
+		actual: actual,
+		s:      s,
+	}
 }
 
 // Assert implementations
-func (s *scenario) AssertEqual(expected, actual interface{}) {
-	s.Logf("Then I expect the value should be equal to %v\n", expected)
-	if !reflect.DeepEqual(expected, actual) {
-		logWithCaller(2, "Assertion failed: expected value %v and actual value %v are not equal\n", expected, actual)
-		s.t.Fail()
-		if !s.continueOnAssertionFailed {
+func (a *assert) ShouldBeEqualTo(expected interface{}) {
+	a.s.Logf("Then I expect the value should be equal to %v\n", expected)
+	if !reflect.DeepEqual(expected, a.actual) {
+		logWithCaller(2, "Assertion failed: expected value %v and actual value %v are not equal\n", expected, a.actual)
+		a.s.t.Fail()
+		if !a.s.continueOnAssertionFailed {
 			panic("assertion failed")
 		}
 		return
 	}
 }
 
-func (s *scenario) AssertNotEqual(expected, actual interface{}) {
-	s.Logf("Then I expect the value should not be equal to %v\n", expected)
-	if reflect.DeepEqual(expected, actual) {
-		logWithCaller(2, "Assertion failed: expected value %v and actual value %v are equal\n", expected, actual)
-		s.t.Fail()
-		if !s.continueOnAssertionFailed {
+func (a *assert) ShouldNotBeEqualTo(expected interface{}) {
+	a.s.Logf("Then I expect the value should not be equal to %v\n", expected)
+	if reflect.DeepEqual(expected, a.actual) {
+		logWithCaller(2, "Assertion failed: expected value %v and actual value %v are equal\n", expected, a.actual)
+		a.s.t.Fail()
+		if !a.s.continueOnAssertionFailed {
 			panic("assertion failed")
 		}
 		return
 	}
 }
 
-func (s *scenario) AssertTrue(expected bool) {
-	s.Logln("Then I expect the value should be True")
-	if !expected {
+func (a *assert) ShouldBeTrue() {
+	a.s.Logln("Then I expect the value should be True")
+	b , ok := a.actual.(bool)
+	if !ok {
+		logWithCaller(2, "Assertion failed: the actual value passed is not boolean, but %T\n",a.actual)
+	}
+	if !b {
 		logWithCaller(2, "Assertion failed: expected 'true' but it is 'false'\n")
-		s.t.Fail()
-		if !s.continueOnAssertionFailed {
+		a.s.t.Fail()
+		if !a.s.continueOnAssertionFailed {
 			panic("assertion failed")
 		}
 		return
 	}
 }
 
-func (s *scenario) AssertFalse(expected bool) {
-	s.Logln("Then I expect the value should be False")
-	if expected {
+func (a *assert) ShouldBeFalse() {
+	a.s.Logln("Then I expect the value should be False")
+	b , ok := a.actual.(bool)
+	if !ok {
+		logWithCaller(2, "Assertion failed: the actual value passed is not boolean, but %T\n",a.actual)
+	}
+	if b {
 		logWithCaller(2, "Assertion failed: expected 'false' but it is 'true'\n")
-		s.t.Fail()
-		if !s.continueOnAssertionFailed {
+		a.s.t.Fail()
+		if !a.s.continueOnAssertionFailed {
 			panic("assertion failed")
 		}
 		return
 	}
 }
 
-func (s *scenario) AssertNil(expected interface{}) {
-	s.Logln("Then I expect the value should be Nil")
-
-	if !isNil(expected) {
+func (a *assert) ShouldBeNil() {
+	a.s.Logln("Then I expect the value should be Nil")
+	defer func(){
+		if r := recover(); r != nil{
+			logWithCaller(5,"passed object can not be tested for nil'ness due to its type: %T\n",a.actual)
+			a.s.t.Fail()
+		}
+	}()
+	if !isNil(a.actual) {
 		logWithCaller(2, "Assertion failed: expected 'nil' value but it is not 'nil'\n")
-		s.t.Fail()
-		if !s.continueOnAssertionFailed {
+		a.s.t.Fail()
+		if !a.s.continueOnAssertionFailed {
 			panic("assertion failed")
 		}
 		return
 	}
 }
 
-func (s *scenario) AssertNotNil(expected interface{}) {
-	s.Logln("Then I expect the value should not be Nil")
-	if isNil(expected) {
+func (a *assert) ShouldNotBeNil() {
+	a.s.Logln("Then I expect the value should not be Nil")
+	defer func(){
+		if r := recover(); r != nil{
+			logWithCaller(5,"passed object can not be tested for nil'ness due to its type: %T\n",a.actual)
+			a.s.t.Fail()
+		}
+	}()
+	if isNil(a.actual) {
 		logWithCaller(2, "Assertion failed: expected 'not nil' value but it is a 'nil'\n")
-		s.t.Fail()
-		if !s.continueOnAssertionFailed {
+		a.s.t.Fail()
+		if !a.s.continueOnAssertionFailed {
 			panic("assertion failed")
 		}
 		return
@@ -170,8 +209,11 @@ func isNil(v interface{}) bool {
 		return true
 	}
 	switch reflect.TypeOf(v).Kind() {
-	case reflect.Map, reflect.Chan, reflect.Slice, reflect.Ptr, reflect.Array:
+	case reflect.Map, reflect.Chan, reflect.Slice, reflect.Ptr, reflect.Array,reflect.Interface,reflect.Func:
 		return reflect.ValueOf(v).IsNil()
+	default:
+		panic("")
+
 	}
 	return false
 }

@@ -15,14 +15,14 @@ func (t *SomeDataToBeUnitTested)Id() int {
 }
 
 func TestScenario_AssertEqual(t *testing.T) {
-	scenario := NewScenario(t)
+	scenario := NewScenario(t, "Test ShouldBeEqualTo")
 	v := &SomeDataToBeUnitTested{}
 	scenario.When("I set the Id as 4", func(and And, then Then) {
 		v.SetId(4)
-		then.AssertEqual(4, v.Id())
+		then.Expect(v.Id()).ShouldBeEqualTo(4)
 		and.I("reset Id as 5", func(and And, then Then) {
 			v.SetId(5)
-			then.AssertEqual(5, v.Id())
+			then.Expect(v.Id()).ShouldBeEqualTo(5)
 			then.Logln("Some information logging...")
 			// ...
 			// ...
@@ -30,53 +30,62 @@ func TestScenario_AssertEqual(t *testing.T) {
 		})
 		and.I("reset Id again to 0", func(and And, then Then) {
 			v.SetId(0)
-			then.Logln("Then value of Id should be 0")
-			then.AssertEqual(0,v.Id())
+			then.Expect(v.Id()).ShouldBeEqualTo(0)
 		})
 	})
 }
 
 
 func TestScenario_AssertNotEqual(t *testing.T) {
-	scenario := NewScenario(t)
+	scenario := NewScenario(t, "Test ShouldNotBeEqualTo")
 	v := &SomeDataToBeUnitTested{}
 	scenario.When("I set the Id as 5", func(and And, then Then) {
 		v.SetId(5)
-		and.I("expect the value of Id to be as 4", func(and And, then Then) {
-			then.AssertNotEqual(4,v.Id())
+		and.I("check the id again", func(and And, then Then) {
+			then.Expect(v.Id()).ShouldNotBeEqualTo(4)
 		})
 	})
 }
 
 func TestScenario_AssertTrue(t *testing.T) {
-	scenario := NewScenario(t)
+	scenario := NewScenario(t, "Test ShouldBeTrue")
 	v := &SomeDataToBeUnitTested{}
 	scenario.When("I set the Id as 5", func(and And, then Then) {
 		v.SetId(5)
-		and.I("expect the value of Id to be as 5", func(and And, then Then) {
-			then.AssertTrue(5==v.Id())
+		and.I("check the id is 5", func(and And, then Then) {
+			then.Expect(5==v.Id()).ShouldBeTrue()
 		})
 	})
 }
 
 func TestScenario_AssertFalse(t *testing.T) {
-	scenario := NewScenario(t)
+	scenario := NewScenario(t, "Test AssertFalse")
 	v := &SomeDataToBeUnitTested{}
 	scenario.When("I set the Id as 5", func(and And, then Then) {
 		v.SetId(5)
-		and.I("expect the value of Id to be as 4", func(and And, then Then) {
-			then.AssertFalse(4==v.Id())
+		and.I("check the id is 4", func(and And, then Then) {
+			then.Expect(4==v.Id()).ShouldBeFalse()
 		})
 	})
 }
 
 func TestScenario_AssertNil(t *testing.T) {
-	scenario := NewScenario(t)
+	scenario := NewScenario(t, "Test AssertNil")
 	scenario.When("I initialise the pointer object with Nil", func(and And, then Then) {
 		var v *SomeDataToBeUnitTested
 		v = nil
-		and.I("expect the variable as nil", func(and And, then Then) {
-			then.AssertNil(v)
+		and.I("check the pointer object is nil", func(and And, then Then) {
+			then.Expect(v).ShouldBeNil()
+		})
+	})
+}
+
+func TestScenario_AssertNotNil(t *testing.T) {
+	scenario := NewScenario(t, "Test AssertNotNil")
+	scenario.When("I initialise the pointer object with not Nil", func(and And, then Then) {
+		v := &SomeDataToBeUnitTested{}
+		and.I("check the pointer object is not nil", func(and And, then Then) {
+			then.Expect(v).ShouldNotBeNil()
 		})
 	})
 }
