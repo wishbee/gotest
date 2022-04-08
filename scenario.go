@@ -41,11 +41,11 @@ type And interface {
 }
 
 type Then interface {
-	Expect(actual interface{}) Assert
+	Expect(objectName string, actualValue interface{}) Assert
 	Logger
 }
 
-type Assert interface{
+type Assert interface {
 	ShouldBeEqualTo(expected interface{})
 	ShouldNotBeEqualTo(expected interface{})
 	ShouldBeTrue()
@@ -55,8 +55,9 @@ type Assert interface{
 }
 
 type assert struct {
-	actual interface{}
-	s *scenario
+	objectName string
+	actual     interface{}
+	s          *scenario
 }
 
 type scenario struct {
@@ -71,7 +72,7 @@ type scenario struct {
 func NewScenario(t *testing.T, scenarioText string) Scenario {
 	return &scenario{
 		t:                         t,
-		continueOnAssertionFailed: false,
+		continueOnAssertionFailed: true,
 		scenario:                  scenarioText,
 	}
 }
@@ -104,16 +105,17 @@ func (s *scenario) I(action string, v func(and And, then Then)) {
 	s.depth--
 }
 
-func (s *scenario)Expect(actual interface{}) Assert {
+func (s *scenario) Expect(objectName string, actualValue interface{}) Assert {
 	return &assert{
-		actual: actual,
-		s:      s,
+		objectName: objectName,
+		actual:     actualValue,
+		s:          s,
 	}
 }
 
 // Assert implementations
 func (a *assert) ShouldBeEqualTo(expected interface{}) {
-	a.s.Logf("Then I expect the value should be equal to %v\n", expected)
+	a.s.Logf("Then I expect %s should be equal to %v\n", a.objectName, expected)
 	if !reflect.DeepEqual(expected, a.actual) {
 		logWithCaller(2, "Assertion failed: expected value %v and actual value %v are not equal\n", expected, a.actual)
 		a.s.t.Fail()
@@ -125,7 +127,7 @@ func (a *assert) ShouldBeEqualTo(expected interface{}) {
 }
 
 func (a *assert) ShouldNotBeEqualTo(expected interface{}) {
-	a.s.Logf("Then I expect the value should not be equal to %v\n", expected)
+	a.s.Logf("Then I expect %s should not be equal to %v\n", a.objectName, expected)
 	if reflect.DeepEqual(expected, a.actual) {
 		logWithCaller(2, "Assertion failed: expected value %v and actual value %v are equal\n", expected, a.actual)
 		a.s.t.Fail()
@@ -137,10 +139,10 @@ func (a *assert) ShouldNotBeEqualTo(expected interface{}) {
 }
 
 func (a *assert) ShouldBeTrue() {
-	a.s.Logln("Then I expect the value should be True")
-	b , ok := a.actual.(bool)
+	a.s.Logf("Then I expect %s should be True\n", a.objectName)
+	b, ok := a.actual.(bool)
 	if !ok {
-		logWithCaller(2, "Assertion failed: the actual value passed is not boolean, but %T\n",a.actual)
+		logWithCaller(2, "Assertion failed: the actual value passed is not boolean, but %T\n", a.actual)
 	}
 	if !b {
 		logWithCaller(2, "Assertion failed: expected 'true' but it is 'false'\n")
@@ -153,10 +155,10 @@ func (a *assert) ShouldBeTrue() {
 }
 
 func (a *assert) ShouldBeFalse() {
-	a.s.Logln("Then I expect the value should be False")
-	b , ok := a.actual.(bool)
+	a.s.Logf("Then I expect %s should be False\n", a.objectName)
+	b, ok := a.actual.(bool)
 	if !ok {
-		logWithCaller(2, "Assertion failed: the actual value passed is not boolean, but %T\n",a.actual)
+		logWithCaller(2, "Assertion failed: the actual value passed is not boolean, but %T\n", a.actual)
 	}
 	if b {
 		logWithCaller(2, "Assertion failed: expected 'false' but it is 'true'\n")
@@ -169,14 +171,8 @@ func (a *assert) ShouldBeFalse() {
 }
 
 func (a *assert) ShouldBeNil() {
-	a.s.Logln("Then I expect the value should be Nil")
-	defer func(){
-		if r := recover(); r != nil{
-			logWithCaller(5,"passed object can not be tested for nil'ness due to its type: %T\n",a.actual)
-			a.s.t.Fail()
-		}
-	}()
-	if !isNil(a.actual) {
+	a.s.Logf("Then I expect %s should be Nil\n", a.objectName)
+	if !a.isNil(a.actual) {
 		logWithCaller(2, "Assertion failed: expected 'nil' value but it is not 'nil'\n")
 		a.s.t.Fail()
 		if !a.s.continueOnAssertionFailed {
@@ -187,14 +183,8 @@ func (a *assert) ShouldBeNil() {
 }
 
 func (a *assert) ShouldNotBeNil() {
-	a.s.Logln("Then I expect the value should not be Nil")
-	defer func(){
-		if r := recover(); r != nil{
-			logWithCaller(5,"passed object can not be tested for nil'ness due to its type: %T\n",a.actual)
-			a.s.t.Fail()
-		}
-	}()
-	if isNil(a.actual) {
+	a.s.Logf("Then I expect %s should not be Nil\n", a.objectName)
+	if a.isNil(a.actual) {
 		logWithCaller(2, "Assertion failed: expected 'not nil' value but it is a 'nil'\n")
 		a.s.t.Fail()
 		if !a.s.continueOnAssertionFailed {
@@ -204,16 +194,18 @@ func (a *assert) ShouldNotBeNil() {
 	}
 }
 
-func isNil(v interface{}) bool {
+func (a *assert) isNil(v interface{}) bool {
 	if v == nil {
 		return true
 	}
 	switch reflect.TypeOf(v).Kind() {
-	case reflect.Map, reflect.Chan, reflect.Slice, reflect.Ptr, reflect.Array,reflect.Interface,reflect.Func:
+	case reflect.Map, reflect.Chan, reflect.Slice, reflect.Ptr, reflect.Array, reflect.Interface, reflect.Func:
 		return reflect.ValueOf(v).IsNil()
 	default:
-		panic("")
-
+		logWithCaller(3, "passed object can not be tested for nil'ness due to its type: %T\n", v)
+		if !a.s.continueOnAssertionFailed {
+			panic("assertion failed")
+		}
 	}
 	return false
 }
