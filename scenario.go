@@ -113,7 +113,7 @@ func (s *scenario) Expect(objectName string, actualValue interface{}) Assert {
 	}
 }
 
-// Assert implementations
+// ShouldBeEqualTo checks if the
 func (a *assert) ShouldBeEqualTo(expected interface{}) {
 	a.s.Logf("Then I expect %s should be equal to %v\n", a.objectName, expected)
 	if !reflect.DeepEqual(expected, a.actual) {

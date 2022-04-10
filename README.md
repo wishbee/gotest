@@ -26,10 +26,10 @@ func TestScenario_AssertEqual(t *testing.T) {
 	v := &SomeDataToBeUnitTested{}
 	scenario.When("I set the Id as 4", func(and And, then Then) {
 		v.SetId(4)
-		then.Expect(v.Id()).ShouldBeEqualTo(4)
+		then.Expect("Id", v.Id()).ShouldBeEqualTo(4)
 		and.I("reset Id as 5", func(and And, then Then) {
 			v.SetId(5)
-			then.Expect(v.Id()).ShouldBeEqualTo(5)
+			then.Expect("Id", v.Id()).ShouldBeEqualTo(5)
 			then.Logln("Some information logging...")
 			// ...
 			// ...
@@ -37,7 +37,7 @@ func TestScenario_AssertEqual(t *testing.T) {
 		})
 		and.I("reset Id again to 0", func(and And, then Then) {
 			v.SetId(0)
-			then.Expect(v.Id()).ShouldBeEqualTo(0)
+			then.Expect("Id", v.Id()).ShouldBeEqualTo(0)
 		})
 	})
 }
@@ -48,13 +48,13 @@ Below is the output from above unit test.
 === RUN   TestScenario_AssertEqual
 Scenario: Test ShouldBeEqualTo
     When I set the Id as 4
-        Then I expect the value should be equal to 4
+        Then I expect Id should be equal to 4
         And I reset Id as 5
-            Then I expect the value should be equal to 5
+            Then I expect Id should be equal to 5
             Some information logging...
             Some more informational logging
         And I reset Id again to 0
-            Then I expect the value should be equal to 0
+            Then I expect Id should be equal to 0
 --- PASS: TestScenario_AssertEqual (0.00s)
 PASS
 
